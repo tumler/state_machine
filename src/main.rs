@@ -10,19 +10,22 @@
 trait StateMachine {
     fn run(&self);
     fn end_condition_met(&self) -> bool;
-    // fn next(self) -> GlorifiedKettle<S>;
 }
 
 trait NextState<S>: Sized
 where
     GlorifiedKettle<S>: From<Self>,
+    GlorifiedKettle<SafetyCutOff>: From<Self>,
 {
     fn next(self) -> GlorifiedKettle<S> {
         self.into()
     }
+
+    fn error(self) -> GlorifiedKettle<SafetyCutOff> {
+        self.into()
+    }
 }
 
-// TODO(1): Get feedback on how to avoid the "move" complaint and falling back to "copy"
 #[derive(Clone, Copy)]
 struct GlorifiedKettle<S> {
     state: S,
@@ -36,7 +39,6 @@ impl GlorifiedKettle<Filling> {
     }
 }
 
-// TODO(1): Get feedback on how to avoid the "move" complaint and falling back to "copy"
 #[derive(Clone, Copy)]
 struct Filling {
     // end_level: u8,
@@ -51,6 +53,10 @@ struct Emptying {
     // end_level: u8,
 }
 
+struct SafetyCutOff {
+    // end_level: u8,
+}
+
 impl From<GlorifiedKettle<Filling>> for GlorifiedKettle<Heating> {
     fn from(_val: GlorifiedKettle<Filling>) -> GlorifiedKettle<Heating> {
         GlorifiedKettle {
@@ -59,12 +65,6 @@ impl From<GlorifiedKettle<Filling>> for GlorifiedKettle<Heating> {
                 actual_temperature: 0.0,
             },
         }
-    }
-}
-
-impl From<GlorifiedKettle<Filling>> for GlorifiedKettle<Emptying> {
-    fn from(_val: GlorifiedKettle<Filling>) -> GlorifiedKettle<Emptying> {
-        GlorifiedKettle { state: Emptying {} }
     }
 }
 
@@ -77,6 +77,30 @@ impl From<GlorifiedKettle<Heating>> for GlorifiedKettle<Emptying> {
 impl From<GlorifiedKettle<Emptying>> for GlorifiedKettle<Filling> {
     fn from(_val: GlorifiedKettle<Emptying>) -> GlorifiedKettle<Filling> {
         GlorifiedKettle { state: Filling {} }
+    }
+}
+
+impl From<GlorifiedKettle<Filling>> for GlorifiedKettle<SafetyCutOff> {
+    fn from(_val: GlorifiedKettle<Filling>) -> GlorifiedKettle<SafetyCutOff> {
+        GlorifiedKettle {
+            state: SafetyCutOff {},
+        }
+    }
+}
+
+impl From<GlorifiedKettle<Heating>> for GlorifiedKettle<SafetyCutOff> {
+    fn from(_val: GlorifiedKettle<Heating>) -> GlorifiedKettle<SafetyCutOff> {
+        GlorifiedKettle {
+            state: SafetyCutOff {},
+        }
+    }
+}
+
+impl From<GlorifiedKettle<Emptying>> for GlorifiedKettle<SafetyCutOff> {
+    fn from(_val: GlorifiedKettle<Emptying>) -> GlorifiedKettle<SafetyCutOff> {
+        GlorifiedKettle {
+            state: SafetyCutOff {},
+        }
     }
 }
 
@@ -104,7 +128,6 @@ impl StateMachine for GlorifiedKettle<Heating> {
     }
 }
 
-// TODO(2): Possible to avoid this repetition with a generic?
 impl NextState<Heating> for GlorifiedKettle<Filling> {}
 impl NextState<Emptying> for GlorifiedKettle<Heating> {}
 impl NextState<Filling> for GlorifiedKettle<Emptying> {}
@@ -138,10 +161,6 @@ const FULL: u8 = 100;
 // ----------------------
 
 fn main() {
-    // Outside of loop. A copy is currently happening when used in the loop
-    // However, when no copy is used, compiler complains about the move when used in the loop
-    // A move into the loop would actually be desired though...
-    // (There is no error when it is initialised inside the loop instead)
     let state = GlorifiedKettle::new();
     loop {
         state.run();
